@@ -1,0 +1,146 @@
+NAME
+    CAD::Drawing::IO - I/O methods for the CAD::Drawing module
+
+Description
+    This module provides the load() and save() functions for CAD::Drawing
+    and provides a point of flow-control to deal with the inheritance and
+    other trickiness of having multiple formats handled through a single
+    module.
+
+AUTHOR
+      Eric L. Wilhelm
+      ewilhelm at sbcglobal dot net
+      http://pages.sbcglobal.net/mycroft
+
+COPYRIGHT
+    This module is copyright (C) 2003 by Eric L. Wilhelm and A. Zahner Co.
+
+LICENSE
+    This module is distributed under the same terms as Perl. See the Perl
+    source package for details.
+
+    You may use this software under one of the following licenses:
+
+      (1) GNU General Public License
+        (found at http://www.gnu.org/copyleft/gpl.html)
+      (2) Artistic License
+        (found at http://www.perl.com/pub/language/misc/Artistic.html)
+
+NO WARRANTY
+    This software is distributed with ABSOLUTELY NO WARRANTY. The author and
+    his employer will in no way be held liable for any loss or damages
+    resulting from its use.
+
+Modifications
+    The source code of this module is made freely available and
+    distributable under the GPL or Artistic License. Modifications to and
+    use of this software must adhere to one of these licenses. Changes to
+    the code should be noted as such and this notification (as well as the
+    above copyright information) must remain intact on all copies of the
+    code.
+
+    Additionally, while the author is actively developing this code,
+    notification of any intended changes or extensions would be most helpful
+    in avoiding repeated work for all parties involved. Please contact the
+    author with any such development plans.
+
+SEE ALSO
+      CAD::Drawing
+      CAD::Drawing::IO::*
+
+Changes
+      0.20 First public release
+      0.25 Changed to plug-in-style architecture
+
+front-end Input and output methods
+    The functions load() and save() are responsible for determining the
+    filetype (with forced types available via $options{type}.) These then
+    call the appropriate <Package>::load() or <Package>::save() functions.
+
+    See the Plug-In Architecture section for details on how to add support
+    for additional filetypes.
+
+  save
+
+    Saves a file to disk. See the save<type> functions in this file and the
+    other filetype functions in the CAD::Drawing::IO::<type> modules.
+
+    See each save<type> function for available options for that type.
+
+    While you may call the save<type> function directly (if you include the
+    module), it is recommended that you stick to the single point of
+    interface provided here so that your code does not become overwhelmingly
+    infected with hard-coded filetypes.
+
+    Note that this method also implements forking. If $options{forkokay} is
+    true, save() will return the pid of the child process to the parent
+    process and setup the child to exit after saving (with currently no way
+    for the child to give a return value to the parent.)
+
+      $drw->save($filename, \%options);
+
+  load
+
+    Loads a file from disk. See the load<type> functions in this file and
+    the other filetype functions in the CAD::Drawing::IO::<type> modules.
+
+    See each load<type> function for available options for that type.
+
+    In most cases %options may contain the selection methods available via
+    the CAD::Drawing::check_select() function.
+
+    While you may call the load<type> function directly (if you include the
+    module), it is recommended that you stick to the single point of
+    interface provided here.
+
+      $drw->load($filename, \%options);
+
+Plug-In Architecture
+    Plug-ins are modules which are under the CAD::Drawing::IO::* namespace.
+    This namespace is searched at compile time, and any modules found are
+    require()d inside of an eval() block (see BEGIN.) Compile failure in any
+    one of these modules will be printed to STDERR, but will not halt the
+    running program.
+
+    Each plug-in is responsible for declaring one or all of the following
+    variables:
+
+      our $can_save_type = "type";
+      our $can_load_type = "type (or another type)";
+      our $is_inherited = 1; # or 0 (or undef())
+
+    If a package claims to be able to load or save a type, then it must
+    contain the functions load() or save() (respectively.) Package which
+    declare $is_inherited as a true value will become methods of the
+    CAD::Drawing class (though their load() and save() functions will not be
+    visible due to their location in the inheritance tree.)
+
+  BEGIN
+
+    The BEGIN block implements the module path searching (looking only in
+    directories of @INC which contain a "CAD/Drawing/IO/" directory.)
+
+    For each plug-in which is found, code references are saved for later use
+    by the diskaction() function.
+
+  diskaction
+
+    This function is for internal use, intended to consolidate the type
+    selection and calling of load/save methods.
+
+      $drw->diskaction("load|save", $filename, $type, \%options);
+
+    For each plug-in package which was located in the BEGIN block, the
+    function <Package>::check_type() will be called, and must return a true
+    value for the package to be used for $action.
+
+  outloop
+
+    Crazy new experimental output method. Each entity supported by the
+    format should have a key to a function in %functions, which is expected
+    to accept the following input data:
+
+      $functions{$ent_type}->($obj, \%data);
+
+      $drw->outloop(\%functions, \%data);
+
